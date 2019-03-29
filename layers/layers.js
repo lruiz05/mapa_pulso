@@ -20,7 +20,7 @@ jsonSource_e13a19_05_1.addFeatures(features_e13a19_05_1);var lyr_e13a19_05_1 = n
                 declutter: true,
                 source:jsonSource_e13a19_05_1, 
                 style: style_e13a19_05_1,
-                title: '<img src="styles/legend/e13a19_05_1.png" /> e13a19_05'
+                title: 'e13a19_05'
             });
 
 lyr_OSMStandard_0.setVisible(true);lyr_e13a19_05_1.setVisible(true);

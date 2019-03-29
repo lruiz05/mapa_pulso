@@ -10,6 +10,14 @@
         <link rel="stylesheet" href="resources/fontawesome-all.min.css">
         <link rel="stylesheet" href="./resources/ol3-layerswitcher.css">
         <link rel="stylesheet" href="./resources/qgis2web.css">
+
+        <!-- ol-ext -->
+        <link rel="stylesheet" href="./resources/ol-ext/ol-ext.css" />
+
+        <!-- jQuery -->
+        <script type="text/javascript" src="https://code.jquery.com/jquery-1.11.0.min.js"></script>
+        
+        <script src="https://cdn.polyfill.io/v2/polyfill.min.js?features=requestAnimationFrame,Element.prototype.classList,URL,Object.assign"></script>
 <style>
 .search-layer {
   top: 65px;
@@ -18,13 +26,57 @@
 .ol-touch .search-layer {
   top: 80px;
 }
+.ol-attribution {
+      bottom: 4.5em;
+}
+.ol-timeline {
+    font-size: 2em;
+}
+.ol-timeline .ol-scroll {
+    height: 2em;
+}
+.ol-timeline .ol-features {
+    text-align: center;
+}
+#select {
+    font-size: .85em;
+    margin: 1em 0;
+}
+#select p {
+    margin: 0;
+}
+#select .copy {
+    font-size: .9em;
+    color: #396;
+}
+button.go:before {
+    content: '';
+    position: absolute;
+    width: 0;
+    height: .8em;
+    background: transparent;
+    border: 0.4em solid transparent;
+    border-right: 0;
+    border-left: .6em solid #fff;
+    left: 50%;
+    right: 50%;
+    transform: translate(-50%, -50%);
+    box-sizing: border-box;
+}
+.running button.go:before {
+    background: transparent;
+    width: .2em;
+    border: 0;
+    box-shadow: .2em 0, -.2em 0;
+}
+
 </style>
         <style>
         html, body {
             background-color: #ffffff;
         }
         .ol-control button {
-            background-color: #f8f8f8 !important;
+            /* background-color: #f8f8f8 !important; */
             color: #000000 !important;
             border-radius: 0px !important;
         }
@@ -67,5 +119,137 @@
         <script src="./layers/layers.js" type="text/javascript"></script> 
         <script src="./resources/qgis2web.js"></script>
         <script src="./resources/Autolinker.min.js"></script>
+        <script src="./resources/ol-ext/ol-ext.js"></script>
+
+        <script type="text/javascript">
+            // Create Timeline control
+            var tline = new ol.control.Timeline({
+                className: 'ol-pointer',
+                features: [{
+                text: 2013,
+                date: new Date("2017-05-17T16:31:20.000"),
+                endDate: new Date("2017-05-17T16:32:29.000")
+                }],
+                graduation: 'hour',
+                minDate: new Date("2017-05-17T16:31:00.000"),
+                maxDate: new Date("2017-05-17T16:33:00.000"),
+                getHTML: function(f){ return 2017; },
+                getFeatureDate: function(f){ return f.date; },
+                endFeatureDate: function(f) { return f.endDate }
+            });
+            map.addControl (tline);
+            // Set the date when ready
+            setTimeout(function(){ tline.setDate('2017-05-17'); });
+            tline.addButton ({
+                className: "go",
+                title: "GO!",
+                handleClick: function() {
+                    go();
+                }
+            });
+            // Show features on scroll
+            tline.on('scroll', function(e){
+                // console.log("scroll e.date:", e.date)
+                var title
+                var marca_tiempo
+                map.getLayers().forEach(function(layer){
+                    // console.log("layer", layer)
+                    title = layer.get('title')
+                    if (title == 'e13a19_05') {
+                        features = layer.getSource().getFeatures();
+                        // console.log("features", features)
+                        features.forEach(function(feature){
+                            pulseFeature(feature.getGeometry().getCoordinates())
+                            marca_tiempo = feature.get('marca_tiempo')
+                            console.log("marca_tiempo ", marca_tiempo)
+                            // if (new Date(marca_tiempo) == e.date) {
+                            //     console.log("marca_tiempo ", marca_tiempo)
+                            // } else {
+
+                            // }
+                        });
+                    }
+                });
+            });
+
+            // Run on the timeline
+            var running = false; 
+            var start = new Date("2017-05-17T16:31:20.000");
+            var end = new Date("2017-05-17T16:32:29.000");
+            function go(next) {
+                var date = tline.getDate();
+                if (running) clearTimeout(running);
+                if (!next) {
+                    // stop
+                    if (date>start && date<end && running) {
+                        running = false;
+                        tline.element.classList.remove('running');
+                        return;
+                    }
+                    if (date > end) {
+                        date = start;
+                    }
+                }
+                if (date > end) {
+                    tline.element.classList.remove('running');
+                    return;
+                }
+                if (date < start) {
+                    date = start;
+                }
+                // 2 months (60 days)
+                date = new Date(date.getTime() + 24*60*60*1000*30);
+                tline.setDate(date, { anim:false });
+                // next
+                tline.element.classList.add('running');
+                running = setTimeout(function() { go(true); }, 100);
+            }
+
+            // ol-ext pulse
+            // Bounce easing (custom)
+            var bounce = 5;
+            var a = (2*bounce+1) * Math.PI/2;
+            var b = -0.01;
+            var c = -Math.cos(a) * Math.pow(2, b);
+            ol.easing.bounce = function(t)
+            {	t = 1-Math.cos(t*Math.PI/2);
+                return (1 + Math.abs( Math.cos(a*t) ) * Math.pow(2, b*t) + c*t)/2;
+            }
+            
+            // Preload image (?)
+            // var icon = new ol.style.Icon ({ src:"../data/smile.png" });
+            // icon.load();
+            // Pulse feature at coord
+            function pulseFeature(coord)
+            {	var f = new ol.Feature (new ol.geom.Point(coord));
+                f.setStyle (new ol.style.Style(
+                            {	image: new ol.style["Circle"] (
+                                {	radius: 30, 
+                                    points: 4,
+                                    src: "../data/smile.png",
+                                    stroke: new ol.style.Stroke ({ color: $("#color").val(), width:2 })
+                                })
+                            }));
+                map.animateFeature (f, new ol.featureAnimation.Zoom(
+                    {	fade: ol.easing.easeOut, 
+                        duration:3000, 
+                        easing: ol.easing[$("#easing").val()] 
+                    }));
+            }
+            // Pulse on click 
+            map.on('singleclick', function(evt) 
+            {	pulseFeature(evt.coordinate);
+            });
+            // Pulse at lonlat
+            function pulse(lonlat)
+            {	var nb = $("#easing").val()=='bounce' ? 1:3;
+                for (var i=0; i<nb; i++)
+                {	setTimeout (function()
+                    {	pulseFeature (ol.proj.transform(lonlat, 'EPSG:4326', map.getView().getProjection()));
+                    }, i*500);
+                };
+            }
+        </script>
+
     </body>
 </html>
